@@ -1,4 +1,27 @@
-import { useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>thread&co — Adaptive Gallery</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Baloo Bhaijaan 2', sans-serif; }
+</style>
+
+<!-- React + ReactDOM -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<!-- Babel so the browser can run JSX directly, no build step -->
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState } = React;
 
 const ITEMS = [
   { id: 1, name: "Tailored Wool Coat",    price: 145, img: "🧥", rating: 4.8, reviews: 1204, category: "Outerwear", tag: "Bestseller", desc: "Structured shoulder, falls just past the knee." },
@@ -202,7 +225,7 @@ function ModeTabs({ mode, onSwitch }) {
   );
 }
 
-export default function App() {
+function App() {
   const [mode, setMode] = useState(MODES.EXPLORE);
   const [added, setAdded] = useState({});
   const [filter, setFilter] = useState("All");
@@ -228,11 +251,8 @@ export default function App() {
       display: "flex", flexDirection: "column", alignItems: "center",
       padding: "0 0 70px",
     }}>
-      <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-
       <div style={{ width: "100%", maxWidth: 920 }}>
 
-        {/* Site header */}
         <div style={{
           borderBottom: `3px solid ${INK}`,
           padding: "20px 24px",
@@ -253,7 +273,6 @@ export default function App() {
           }}>🛍️</div>
         </div>
 
-        {/* Gallery intro */}
         <div style={{ padding: "32px 24px 0" }}>
           <h1 style={{ fontSize: 32, fontWeight: 800, color: INK, margin: 0 }}>
             Browse the collection
@@ -263,7 +282,6 @@ export default function App() {
           </p>
         </div>
 
-        {/* Mode switcher — front and center on entry */}
         <div style={{ padding: "20px 24px 0" }}>
           <ModeTabs mode={mode} onSwitch={switchMode} />
           <div style={{
@@ -278,7 +296,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Gallery content */}
         <div style={{
           padding: "20px 24px 24px",
           opacity: fading ? 0 : 1,
@@ -335,7 +352,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Added summary bar */}
         {addedCount > 0 && (
           <div style={{
             position: "sticky", bottom: 0,
@@ -365,3 +381,10 @@ export default function App() {
     </div>
   );
 }
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+
+</body>
+</html>
