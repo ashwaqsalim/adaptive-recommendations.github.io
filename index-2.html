@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>thread&co — Gallery</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef, useEffect } = React;
+
+const ITEMS = [
+  { id: 1, name: "Tailored Wool Coat",    price: 145, img: "🧥", rating: 4.8, reviews: 1204, category: "Outerwear", tag: "Bestseller", desc: "Structured shoulder, falls just past the knee.", gender: "women" },
+  { id: 2, name: "Classic Oxford Shirt",  price: 42,  img: "👔", rating: 4.7, reviews: 980,  category: "Tops",      tag: "Top Rated",   desc: "Crisp cotton, slim fit. Pairs with everything.", gender: "men" },
+  { id: 3, name: "Wide-Leg Trousers",     price: 58,  img: "👖", rating: 4.5, reviews: 612,  category: "Bottoms",   tag: null,          desc: "Tailored drape, sits at the waist.", gender: "women" },
+  { id: 4, name: "Knit Midi Dress",       price: 65,  img: "👗", rating: 4.6, reviews: 1430, category: "Dresses",   tag: null,          desc: "Ribbed knit, flatters every shape.", gender: "women" },
+  { id: 5, name: "Leather Ankle Boots",   price: 110, img: "👢", rating: 4.4, reviews: 540,  category: "Footwear",  tag: null,          desc: "Hand-finished leather, stacked heel.", gender: "unisex" },
+  { id: 6, name: "Cashmere Scarf",        price: 38,  img: "🧣", rating: 4.9, reviews: 290,  category: "Accessories", tag: "New",       desc: "Featherweight, made to layer.", gender: "unisex" },
+  { id: 7, name: "Cropped Denim Jacket",  price: 72,  img: "🧥", rating: 4.3, reviews: 805,  category: "Outerwear", tag: null,          desc: "Light layer for in-between weather.", gender: "women" },
+  { id: 8, name: "Silk Slip Top",         price: 34,  img: "👚", rating: 4.5, reviews: 421,  category: "Tops",      tag: null,          desc: "Bias-cut silk, dresses up or down.", gender: "women" },
+  { id: 9, name: "Leather Belt",          price: 28,  img: "👞", rating: 4.6, reviews: 705,  category: "Accessories", tag: null,        desc: "Full-grain leather, brass buckle.", gender: "men" },
+  { id: 10, name: "Pleated Midi Skirt",   price: 54,  img: "👗", rating: 4.4, reviews: 388,  category: "Bottoms",   tag: null,          desc: "Soft pleats that move with you.", gender: "women" },
+  { id: 11, name: "Canvas Tote",          price: 24,  img: "👜", rating: 4.7, reviews: 950,  category: "Accessories", tag: null,        desc: "Heavyweight canvas, fits a laptop.", gender: "unisex" },
+  { id: 12, name: "Suede Loafers",        price: 95,  img: "🥿", rating: 4.5, reviews: 312,  category: "Footwear",  tag: null,          desc: "Soft suede, cushioned insole.", gender: "men" },
+];
+
+const NEW_IN_IDS = [6, 4, 1, 12, 8, 11];
+const NEW_IN_ITEMS = NEW_IN_IDS.map(id => ITEMS.find(i => i.id === id));
+
+// ---- Simulated customer profiles with rolling historical/behavioral signals ----
+// In production these would be pulled from event logs (page views, cart events,
+// session telemetry) and a customer/order history table. Here they're mocked
+// so the scoring model below has something realistic to run on.
+const CUSTOMERS = {
+  ash: {
+    name: "Ash",
+    avatar: "🧑",
+    defaultSection: "women",
+    signals: {
+      avgTimeOnProductPage: 92,      // seconds, site avg ~30s
+      repeatProductViews: 7,          // times re-visited same item this week
+      cartAddRemoveCycles: 5,         // add then remove, same session
+      sessionsThisWeek: 6,
+      avgItemsViewedBeforePurchase: 14,
+      cartAbandonRate: 0.71,          // 71% of carts started, not completed
+      pastOrderCount: 9,
+      avgTimeToPurchaseDays: 8.4,
+      supportContactsAboutChoosing: 2,
+    },
+  },
+  priya: {
+    name: "Priya",
+    avatar: "👩",
+    defaultSection: "women",
+    signals: {
+      avgTimeOnProductPage: 51,
+      repeatProductViews: 3,
+      cartAddRemoveCycles: 2,
+      sessionsThisWeek: 3,
+      avgItemsViewedBeforePurchase: 7,
+      cartAbandonRate: 0.35,
+      pastOrderCount: 6,
+      avgTimeToPurchaseDays: 3.1,
+      supportContactsAboutChoosing: 0,
+    },
+  },
+  sam: {
+    name: "Sam",
+    avatar: "🧑‍🦱",
+    defaultSection: "men",
+    signals: {
+      avgTimeOnProductPage: 22,
+      repeatProductViews: 1,
+      cartAddRemoveCycles: 0,
+      sessionsThisWeek: 1,
+      avgItemsViewedBeforePurchase: 3,
+      cartAbandonRate: 0.07,
+      pastOrderCount: 11,
+      avgTimeToPurchaseDays: 0.5,
+      supportContactsAboutChoosing: 0,
+    },
+  },
+};
+
+
+// ---- DPS model ----
+// Stand-in for a trained gradient-boosted model. Each signal is normalized
+// against a rough site-average baseline, weighted by how predictive that
+// feature tends to be of indecision, then squashed into a 0-100 score.
+// Swap this function for a real model.predict(features) call in production.
+function predictDPS(signals) {
+  const norm = (val, baseline, cap) => Math.min(val / baseline, cap) / cap; // 0..1
+  const features = {
+    timeOnPage:        norm(signals.avgTimeOnProductPage, 30, 4),
+    repeatViews:        norm(signals.repeatProductViews, 1, 5),
+    cartCycles:         norm(signals.cartAddRemoveCycles, 1, 4),
+    itemsBeforePurchase: norm(signals.avgItemsViewedBeforePurchase, 4, 4),
+    abandonRate:        signals.cartAbandonRate,
+    timeToPurchase:      norm(signals.avgTimeToPurchaseDays, 2, 4),
+    supportContacts:     norm(signals.supportContactsAboutChoosing, 1, 3),
+  };
+  const weights = {
+    timeOnPage: 0.18, repeatViews: 0.18, cartCycles: 0.16,
+    itemsBeforePurchase: 0.14, abandonRate: 0.18, timeToPurchase: 0.08, supportContacts: 0.08,
+  };
+  let score = 0;
+  Object.keys(weights).forEach(k => { score += features[k] * weights[k]; });
+  return Math.round(score * 100);
+}
+
+function dpsBand(score) {
+  if (score >= 65) return { mode: MODES.DECISIVE, pickCount: 2, color: "#FF6B4A" };
+  if (score >= 35) return { mode: MODES.DECISIVE, pickCount: 4, color: "#9B6BD6" };
+  return { mode: MODES.EXPLORE, pickCount: 0, color: "#2BA6C9" };
+}
+
+function itemsForSection(section) {
+  if (section === "women") return ITEMS.filter(i => i.gender === "women" || i.gender === "unisex");
+  if (section === "men")   return ITEMS.filter(i => i.gender === "men" || i.gender === "unisex");
+  return ITEMS;
+}
+
+function bestPicksFor(items, count = 2) {
+  return [...items].sort((a, b) => b.rating - a.rating).slice(0, count);
+}
+
+function curatedGroupsFor(items) {
+  const byCat = {};
+  items.forEach(i => { (byCat[i.category] = byCat[i.category] || []).push(i); });
+  return Object.entries(byCat).slice(0, 3).map(([label, its]) => ({ label, items: its.slice(0, 3) }));
+}
+
+const CATEGORIES = ["All", "Outerwear", "Tops", "Bottoms", "Dresses", "Footwear", "Accessories"];
+const PICK_REASONS = [
+  "Based on what you tend to go for",
+  "Pairs well with your past picks",
+  "Similar to things you've kept before",
+  "A style you keep coming back to",
+];
+const SECTIONS = { NEWIN: "newin", WOMEN: "women", MEN: "men" };
+const MODES = { DECISIVE: "decisive", EXPLORE: "explore" };
+
+const MODE_CONFIG = {
+  [MODES.DECISIVE]: {
+    emoji: "✦",
+    label: "Our picks for you",
+    hint: "We think you might like these, based on your history.",
+    accent: "#FF6B4A",
+    light: "#FFF1EC",
+  },
+  [MODES.EXPLORE]: {
+    emoji: "🔍",
+    label: "Show everything",
+    hint: "Full collection, your call. Filter by category as you go.",
+    accent: "#2BA6C9",
+    light: "#EBF8FC",
+  },
+};
+
+const INK = "#1A1A1A";
+const PAPER = "#FAF8F2";
+const FONT = "'Baloo Bhaijaan 2', sans-serif";
+
+function Stars({ rating, reviews }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div style={{ display: "flex" }}>
+        {"★★★★★".split("").map((s, i) => (
+          <span key={i} style={{ color: i < Math.floor(rating) ? "#FFB930" : "#E5E0D5", fontSize: 12 }}>{s}</span>
+        ))}
+      </div>
+      <span style={{ color: "#A8A296", fontSize: 11, fontWeight: 600 }}>{rating} · {reviews}</span>
+    </div>
+  );
+}
+
+function Tag({ children, bg = "#fff" }) {
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      background: bg, padding: "3px 10px",
+      border: `2px solid ${INK}`,
+      fontWeight: 800, fontSize: 11, color: INK,
+    }}>{children}</div>
+  );
+}
+
+function ItemCard({ item, accent, light, compact, highlight, reason, added, onToggle, grid }) {
+  if (grid) {
+    return (
+      <div onClick={onToggle} style={{
+        background: added ? light : "#fff",
+        border: `2.5px solid ${added ? accent : INK}`,
+        padding: "13px 12px",
+        cursor: "pointer", position: "relative",
+        display: "flex", flexDirection: "column", gap: 8,
+        boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.12)",
+        transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
+      }}>
+        {item.tag && (
+          <div style={{ position: "absolute", top: -12, left: 10 }}>
+            <Tag bg={light}>{item.tag}</Tag>
+          </div>
+        )}
+        <div style={{
+          fontSize: 32, background: added ? `${accent}1f` : "#FAF7EE",
+          border: `2px solid ${INK}`,
+          height: 58,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>{item.img}</div>
+        <div style={{ fontWeight: 800, fontSize: 13, color: INK, lineHeight: 1.3 }}>{item.name}</div>
+        <Stars rating={item.rating} reviews={item.reviews} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
+          <span style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</span>
+          <div style={{
+            width: 26, height: 26,
+            background: added ? accent : "#fff",
+            border: `2.5px solid ${INK}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, color: "#fff", fontWeight: 900,
+          }}>{added ? "✓" : ""}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        background: added ? light : "#fff",
+        border: `2.5px solid ${added ? accent : highlight ? accent : INK}`,
+        padding: compact ? "11px 13px" : "15px",
+        display: "flex", alignItems: "center", gap: 13,
+        cursor: "pointer", position: "relative",
+        boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.1)",
+        transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
+      }}
+    >
+      {highlight && (
+        <div style={{ position: "absolute", top: -13, left: 10 }}>
+          <Tag bg="#FFE177">⭐ TOP PICK</Tag>
+        </div>
+      )}
+      {item.tag && !highlight && (
+        <div style={{ position: "absolute", top: -13, left: 10 }}>
+          <Tag>{item.tag}</Tag>
+        </div>
+      )}
+
+      <div style={{
+        fontSize: compact ? 26 : 32,
+        background: added ? `${accent}1f` : "#FAF7EE",
+        border: `2px solid ${INK}`,
+        width: compact ? 46 : 56, height: compact ? 46 : 56,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>{item.img}</div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: INK }}>{item.name}</div>
+        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>}
+        {reason && <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 5 }}>✦ {reason}</div>}
+        <div style={{ marginTop: compact ? 4 : 6 }}><Stars rating={item.rating} reviews={item.reviews} /></div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+        <div style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</div>
+        <div style={{
+          width: 28, height: 28,
+          background: added ? accent : "#fff",
+          border: `2.5px solid ${INK}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 14, color: "#fff", fontWeight: 900,
+        }}>{added ? "✓" : ""}</div>
+      </div>
+    </div>
+  );
+}
+
+function ModeTabs({ mode, onSwitch }) {
+  return (
+    <div style={{ display: "flex", gap: 0, border: `2.5px solid ${INK}` }}>
+      {Object.entries(MODE_CONFIG).map(([key, c], i) => {
+        const active = mode === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onSwitch(key)}
+            style={{
+              flex: 1,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              background: active ? c.accent : "#fff",
+              color: active ? "#fff" : INK,
+              border: "none",
+              borderRight: i < 2 ? `2.5px solid ${INK}` : "none",
+              padding: "11px 8px",
+              fontSize: 13, fontWeight: 800, cursor: "pointer",
+              fontFamily: FONT,
+              transition: "background 0.15s, color 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 16 }}>{c.emoji}</span>
+            {c.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SectionTabs({ section, onSwitch }) {
+  const tabs = [
+    { key: SECTIONS.NEWIN, label: "New In" },
+    { key: SECTIONS.WOMEN, label: "Women" },
+    { key: SECTIONS.MEN,   label: "Men" },
+  ];
+  return (
+    <div style={{ display: "flex", gap: 18 }}>
+      {tabs.map(t => {
+        const active = section === t.key;
+        return (
+          <span
+            key={t.key}
+            onClick={() => onSwitch(t.key)}
+            style={{
+              fontSize: 14, fontWeight: 700, cursor: "pointer",
+              color: active ? INK : "#9C9588",
+              borderBottom: active ? `2.5px solid ${INK}` : "2.5px solid transparent",
+              paddingBottom: 4,
+              transition: "color 0.15s, border-color 0.15s",
+            }}
+          >{t.label}</span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Carousel({ items, accent, light, added, onToggle }) {
+  const trackRef = useRef(null);
+  const scrollBy = (dir) => {
+    if (trackRef.current) trackRef.current.scrollBy({ left: dir * 260, behavior: "smooth" });
+  };
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        ref={trackRef}
+        style={{
+          display: "flex", gap: 16,
+          overflowX: "auto", scrollSnapType: "x mandatory",
+          paddingBottom: 6,
+          scrollbarWidth: "none",
+        }}
+      >
+        {items.map(item => (
+          <div key={item.id} style={{ minWidth: 220, scrollSnapAlign: "start" }}>
+            <div
+              onClick={() => onToggle(item.id)}
+              style={{
+                background: added[item.id] ? light : "#fff",
+                border: `2.5px solid ${added[item.id] ? accent : INK}`,
+                padding: "14px 13px",
+                cursor: "pointer", position: "relative",
+                display: "flex", flexDirection: "column", gap: 8,
+                boxShadow: added[item.id] ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.12)",
+                transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
+              }}
+            >
+              <div style={{ position: "absolute", top: -12, left: 10 }}>
+                <Tag bg={light}>✦ New In</Tag>
+              </div>
+              <div style={{
+                fontSize: 38, background: added[item.id] ? `${accent}1f` : "#FAF7EE",
+                border: `2px solid ${INK}`,
+                height: 90,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>{item.img}</div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: INK, lineHeight: 1.3 }}>{item.name}</div>
+              <Stars rating={item.rating} reviews={item.reviews} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
+                <span style={{ fontWeight: 900, fontSize: 16, color: INK }}>£{item.price}</span>
+                <div style={{
+                  width: 26, height: 26,
+                  background: added[item.id] ? accent : "#fff",
+                  border: `2.5px solid ${INK}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, color: "#fff", fontWeight: 900,
+                }}>{added[item.id] ? "✓" : ""}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => scrollBy(-1)} aria-label="Previous" style={{
+        position: "absolute", left: -16, top: "38%",
+        width: 34, height: 34, borderRadius: "50%",
+        background: "#fff", border: `2.5px solid ${INK}`,
+        fontSize: 15, fontWeight: 800, cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
+      }}>‹</button>
+      <button onClick={() => scrollBy(1)} aria-label="Next" style={{
+        position: "absolute", right: -16, top: "38%",
+        width: 34, height: 34, borderRadius: "50%",
+        background: "#fff", border: `2.5px solid ${INK}`,
+        fontSize: 15, fontWeight: 800, cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
+      }}>›</button>
+    </div>
+  );
+}
+
+function App() {
+  const [customerKey, setCustomerKey] = useState("ash");
+  const [section, setSection] = useState(SECTIONS.WOMEN);
+  const [mode, setMode] = useState(MODES.EXPLORE);
+  const [manualOverride, setManualOverride] = useState(false);
+  const [added, setAdded] = useState({});
+  const [filter, setFilter] = useState("All");
+  const [fading, setFading] = useState(false);
+
+  const customer = CUSTOMERS[customerKey];
+  const dpsScore = predictDPS(customer.signals);
+  const band = dpsBand(dpsScore);
+
+  // Recompute recommended mode and default collection whenever the active
+  // customer changes, unless they've manually picked a different mode.
+  useEffect(() => {
+    setManualOverride(false);
+    setMode(band.mode);
+    setSection(customer.defaultSection || SECTIONS.WOMEN);
+  }, [customerKey]);
+
+  const switchCustomer = (key) => {
+    if (key === customerKey) return;
+    setFading(true);
+    setTimeout(() => { setCustomerKey(key); setFilter("All"); setFading(false); }, 150);
+  };
+
+  const switchMode = (m) => {
+    if (m === mode) return;
+    setManualOverride(true);
+    setFading(true);
+    setTimeout(() => { setMode(m); setFilter("All"); setFading(false); }, 150);
+  };
+
+  const toggle = (id) => setAdded(a => ({ ...a, [id]: !a[id] }));
+  const addedCount = Object.values(added).filter(Boolean).length;
+  const addedTotal = ITEMS.filter(i => added[i.id]).reduce((s, i) => s + i.price, 0);
+  const cfg = MODE_CONFIG[mode];
+
+  const sectionItems = itemsForSection(section);
+  const bestPicks = bestPicksFor(sectionItems, band.pickCount || 2);
+  const filtered = filter === "All" ? sectionItems : sectionItems.filter(i => i.category === filter);
+
+  const switchSection = (s) => {
+    if (s === section) return;
+    setFading(true);
+    setTimeout(() => { setSection(s); setFilter("All"); setFading(false); }, 150);
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: PAPER,
+      fontFamily: FONT,
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "0 0 70px",
+    }}>
+      <div style={{ width: "100%", maxWidth: 920 }}>
+
+        {/* Demo-only: simulated login switcher, so you can see the model react */}
+        <div style={{
+          background: INK, color: "#fff",
+          padding: "8px 24px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontSize: 12,
+        }}>
+          <span style={{ fontWeight: 700, opacity: 0.75 }}>DEMO · simulate a logged-in customer</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Object.entries(CUSTOMERS).map(([key, c]) => (
+              <button key={key} onClick={() => switchCustomer(key)} style={{
+                background: customerKey === key ? "#fff" : "transparent",
+                color: customerKey === key ? INK : "#fff",
+                border: "1.5px solid #fff",
+                borderRadius: 14,
+                padding: "4px 12px", fontSize: 12, fontWeight: 800,
+                cursor: "pointer", fontFamily: FONT,
+                display: "flex", alignItems: "center", gap: 5,
+              }}>{c.avatar} {c.name}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Site header */}
+        <div style={{
+          borderBottom: `3px solid ${INK}`,
+          padding: "20px 24px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ fontWeight: 800, fontSize: 24, color: INK }}>thread&co</div>
+          <SectionTabs section={section} onSwitch={switchSection} />
+          <div style={{
+            color: INK,
+            width: 36, height: 36,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 20,
+          }}>🛍️</div>
+        </div>
+
+        {/* Personalization banner — subtle, no model internals exposed */}
+        {section !== SECTIONS.NEWIN && !manualOverride && mode === MODES.DECISIVE && (
+          <div style={{
+            margin: "18px 24px 0",
+            background: cfg.light,
+            border: `2px solid ${INK}`,
+            padding: "12px 16px",
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>{customer.avatar}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: INK }}>
+                Hi {customer.name} — we think you might like these.
+              </div>
+              <div style={{ fontSize: 11.5, color: "#9C9588", fontWeight: 600, marginTop: 2 }}>
+                A few refined options based on your history. Want to browse more instead?
+              </div>
+            </div>
+          </div>
+        )}
+
+        {section !== SECTIONS.NEWIN && !manualOverride && mode === MODES.EXPLORE && (
+          <div style={{
+            margin: "18px 24px 0",
+            background: cfg.light,
+            border: `2px solid ${INK}`,
+            padding: "12px 16px",
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>{customer.avatar}</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: INK }}>
+                Hi {customer.name} — feel free to explore more.
+              </div>
+              <div style={{ fontSize: 11.5, color: "#9C9588", fontWeight: 600, marginTop: 2 }}>
+                You like to see the full range, so here's everything — browse at your own pace.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Intro */}
+        <div style={{ padding: "32px 24px 0" }}>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: INK, margin: 0 }}>
+            {section === SECTIONS.NEWIN ? "Fresh off the rail" : section === SECTIONS.WOMEN ? "Women's collection" : "Men's collection"}
+          </h1>
+          <p style={{ color: "#9C9588", fontSize: 15, margin: "6px 0 0", fontWeight: 600 }}>
+            {section === SECTIONS.NEWIN ? "The latest arrivals, swipe through at your own pace." : "However you like to shop — we'll match the pace."}
+          </p>
+        </div>
+
+        {/* Mode switcher (Women/Men only) */}
+        {section !== SECTIONS.NEWIN && (
+          <div style={{ padding: "20px 24px 0" }}>
+            <ModeTabs mode={mode} onSwitch={switchMode} />
+            <div style={{
+              marginTop: 14,
+              background: cfg.light,
+              border: `2.5px solid ${cfg.accent}`,
+              padding: "10px 14px",
+              display: "flex", alignItems: "center", gap: 9,
+            }}>
+              <span style={{ fontSize: 17 }}>{cfg.emoji}</span>
+              <span style={{ fontSize: 13, color: cfg.accent, fontWeight: 700 }}>{cfg.hint}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Content */}
+        <div style={{
+          padding: "20px 24px 24px",
+          opacity: fading ? 0 : 1,
+          transform: fading ? "translateY(6px)" : "translateY(0)",
+          transition: "opacity 0.15s, transform 0.15s",
+        }}>
+
+          {section === SECTIONS.NEWIN && (
+            <Carousel items={NEW_IN_ITEMS} accent="#2BA6C9" light="#EBF8FC" added={added} onToggle={toggle} />
+          )}
+
+          {section !== SECTIONS.NEWIN && mode === MODES.DECISIVE && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480, margin: "0 auto" }}>
+              {bestPicks.map((item, i) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  accent={cfg.accent}
+                  light={cfg.light}
+                  highlight
+                  reason={PICK_REASONS[i % PICK_REASONS.length]}
+                  added={!!added[item.id]}
+                  onToggle={() => toggle(item.id)}
+                />
+              ))}
+              <div style={{ textAlign: "center", color: "#C2BCAE", fontSize: 13, fontWeight: 700 }}>
+                Just our top picks for you. Tap to add, or see everything if you'd rather.
+              </div>
+            </div>
+          )}
+
+          {section !== SECTIONS.NEWIN && mode === MODES.EXPLORE && (
+            <div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+                {CATEGORIES.map(cat => (
+                  <button key={cat} onClick={() => setFilter(cat)} style={{
+                    background: filter === cat ? cfg.accent : "#fff",
+                    color: filter === cat ? "#fff" : INK,
+                    border: `2.5px solid ${INK}`,
+                    padding: "6px 14px", fontSize: 12, fontWeight: 800,
+                    cursor: "pointer", fontFamily: FONT,
+                  }}>{cat}</button>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+                {filtered.map(i => (
+                  <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} grid added={!!added[i.id]} onToggle={() => toggle(i.id)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Added summary bar */}
+        {addedCount > 0 && (
+          <div style={{
+            position: "sticky", bottom: 0,
+            margin: "0 24px 24px",
+            background: "#FFF9E0",
+            border: `2.5px solid ${INK}`,
+            padding: "12px 18px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
+          }}>
+            <div style={{ fontSize: 14, color: INK, fontWeight: 800 }}>
+              🛍️ {addedCount} item{addedCount > 1 ? "s" : ""} added · £{addedTotal.toFixed(2)}
+            </div>
+            <button style={{
+              background: "#FF6B4A", color: "#fff",
+              border: `2.5px solid ${INK}`,
+              padding: "9px 20px", fontSize: 13, fontWeight: 800,
+              cursor: "pointer", fontFamily: FONT,
+              boxShadow: "3px 3px 0 rgba(0,0,0,0.18)",
+            }}>
+              Continue to bag →
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
