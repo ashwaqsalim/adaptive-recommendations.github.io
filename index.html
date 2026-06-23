@@ -2,388 +2,206 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>thread&co — Adaptive Gallery</title>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Baloo Bhaijaan 2', sans-serif; }
-</style>
-
-<!-- React + ReactDOM -->
-<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<!-- Babel so the browser can run JSX directly, no build step -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-</head>
-<body>
-
-<div id="root"></div>
-
-<script type="text/babel" data-presets="react">
-const { useState } = React;
-
-const ITEMS = [
-  { id: 1, name: "Tailored Wool Coat",    price: 145, img: "🧥", rating: 4.8, reviews: 1204, category: "Outerwear", tag: "Bestseller", desc: "Structured shoulder, falls just past the knee." },
-  { id: 2, name: "Classic Oxford Shirt",  price: 42,  img: "👔", rating: 4.7, reviews: 980,  category: "Tops",      tag: "Top Rated",   desc: "Crisp cotton, slim fit. Pairs with everything." },
-  { id: 3, name: "Wide-Leg Trousers",     price: 58,  img: "👖", rating: 4.5, reviews: 612,  category: "Bottoms",   tag: null,          desc: "Tailored drape, sits at the waist." },
-  { id: 4, name: "Knit Midi Dress",       price: 65,  img: "👗", rating: 4.6, reviews: 1430, category: "Dresses",   tag: null,          desc: "Ribbed knit, flatters every shape." },
-  { id: 5, name: "Leather Ankle Boots",   price: 110, img: "👢", rating: 4.4, reviews: 540,  category: "Footwear",  tag: null,          desc: "Hand-finished leather, stacked heel." },
-  { id: 6, name: "Cashmere Scarf",        price: 38,  img: "🧣", rating: 4.9, reviews: 290,  category: "Accessories", tag: "New",       desc: "Featherweight, made to layer." },
-  { id: 7, name: "Cropped Denim Jacket",  price: 72,  img: "🧥", rating: 4.3, reviews: 805,  category: "Outerwear", tag: null,          desc: "Light layer for in-between weather." },
-  { id: 8, name: "Silk Slip Top",         price: 34,  img: "👚", rating: 4.5, reviews: 421,  category: "Tops",      tag: null,          desc: "Bias-cut silk, dresses up or down." },
-  { id: 9, name: "Leather Belt",          price: 28,  img: "👞", rating: 4.6, reviews: 705,  category: "Accessories", tag: null,        desc: "Full-grain leather, brass buckle." },
-  { id: 10, name: "Pleated Midi Skirt",   price: 54,  img: "👗", rating: 4.4, reviews: 388,  category: "Bottoms",   tag: null,          desc: "Soft pleats that move with you." },
-  { id: 11, name: "Canvas Tote",          price: 24,  img: "👜", rating: 4.7, reviews: 950,  category: "Accessories", tag: null,        desc: "Heavyweight canvas, fits a laptop." },
-  { id: 12, name: "Suede Loafers",        price: 95,  img: "🥿", rating: 4.5, reviews: 312,  category: "Footwear",  tag: null,          desc: "Soft suede, cushioned insole." },
-];
-
-const BEST_PICKS = [ITEMS[0], ITEMS[1]];
-
-const CURATED_GROUPS = [
-  { label: "Outerwear",   items: [ITEMS[0], ITEMS[6]] },
-  { label: "Tops & Dresses", items: [ITEMS[1], ITEMS[3], ITEMS[7]] },
-  { label: "Finishing touches", items: [ITEMS[5], ITEMS[8], ITEMS[10]] },
-];
-
-const CATEGORIES = ["All", "Outerwear", "Tops", "Bottoms", "Dresses", "Footwear", "Accessories"];
-const MODES = { DECISIVE: "decisive", CURATED: "curated", EXPLORE: "explore" };
-
-const MODE_CONFIG = {
-  [MODES.DECISIVE]: {
-    emoji: "🎯",
-    label: "Just decide",
-    hint: "Short on time? Here are 2 picks that just work, no scrolling required.",
-    accent: "#FF6B4A",
-    light: "#FFF1EC",
-  },
-  [MODES.CURATED]: {
-    emoji: "🗂️",
-    label: "Help me choose",
-    hint: "Grouped by type — fewer choices at once, easier decisions.",
-    accent: "#9B6BD6",
-    light: "#F6F0FF",
-  },
-  [MODES.EXPLORE]: {
-    emoji: "🔍",
-    label: "Show everything",
-    hint: "Full collection, your call. Filter by category as you go.",
-    accent: "#2BA6C9",
-    light: "#EBF8FC",
-  },
-};
-
-const INK = "#1A1A1A";
-const PAPER = "#FAF8F2";
-const FONT = "'Baloo Bhaijaan 2', sans-serif";
-
-function Stars({ rating, reviews }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      <div style={{ display: "flex" }}>
-        {"★★★★★".split("").map((s, i) => (
-          <span key={i} style={{ color: i < Math.floor(rating) ? "#FFB930" : "#E5E0D5", fontSize: 12 }}>{s}</span>
-        ))}
-      </div>
-      <span style={{ color: "#A8A296", fontSize: 11, fontWeight: 600 }}>{rating} · {reviews}</span>
-    </div>
-  );
-}
-
-function Tag({ children, bg = "#fff" }) {
-  return (
-    <div style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      background: bg, padding: "3px 10px",
-      border: `2px solid ${INK}`,
-      fontWeight: 800, fontSize: 11, color: INK,
-    }}>{children}</div>
-  );
-}
-
-function ItemCard({ item, accent, light, compact, highlight, reason, added, onToggle, grid }) {
-  if (grid) {
-    return (
-      <div onClick={onToggle} style={{
-        background: added ? light : "#fff",
-        border: `2.5px solid ${added ? accent : INK}`,
-        padding: "13px 12px",
-        cursor: "pointer", position: "relative",
-        display: "flex", flexDirection: "column", gap: 8,
-        boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.12)",
-        transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
-      }}>
-        {item.tag && (
-          <div style={{ position: "absolute", top: -12, left: 10 }}>
-            <Tag bg={light}>{item.tag}</Tag>
-          </div>
-        )}
-        <div style={{
-          fontSize: 32, background: added ? `${accent}1f` : "#FAF7EE",
-          border: `2px solid ${INK}`,
-          height: 58,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>{item.img}</div>
-        <div style={{ fontWeight: 800, fontSize: 13, color: INK, lineHeight: 1.3 }}>{item.name}</div>
-        <Stars rating={item.rating} reviews={item.reviews} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</span>
-          <div style={{
-            width: 26, height: 26,
-            background: added ? accent : "#fff",
-            border: `2.5px solid ${INK}`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13, color: "#fff", fontWeight: 900,
-          }}>{added ? "✓" : ""}</div>
-        </div>
-      </div>
-    );
+  body {
+    font-family: "Baloo Bhaijaan 2", sans-serif;
+    background: #FAF8F2;
+    color: #1A1A1A;
   }
 
-  return (
-    <div
-      onClick={onToggle}
-      style={{
-        background: added ? light : "#fff",
-        border: `2.5px solid ${added ? accent : highlight ? accent : INK}`,
-        padding: compact ? "11px 13px" : "15px",
-        display: "flex", alignItems: "center", gap: 13,
-        cursor: "pointer", position: "relative",
-        boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.1)",
-        transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
-      }}
-    >
-      {highlight && (
-        <div style={{ position: "absolute", top: -13, left: 10 }}>
-          <Tag bg="#FFE177">⭐ TOP PICK</Tag>
-        </div>
-      )}
-      {item.tag && !highlight && (
-        <div style={{ position: "absolute", top: -13, left: 10 }}>
-          <Tag>{item.tag}</Tag>
-        </div>
-      )}
+  header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:20px;
+    border-bottom:3px solid #1A1A1A;
+  }
 
-      <div style={{
-        fontSize: compact ? 26 : 32,
-        background: added ? `${accent}1f` : "#FAF7EE",
-        border: `2px solid ${INK}`,
-        width: compact ? 46 : 56, height: compact ? 46 : 56,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0,
-      }}>{item.img}</div>
+  .logo { font-size:24px; font-weight:800; }
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: INK }}>{item.name}</div>
-        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>}
-        {reason && <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 5 }}>✦ {reason}</div>}
-        <div style={{ marginTop: compact ? 4 : 6 }}><Stars rating={item.rating} reviews={item.reviews} /></div>
-      </div>
+  .nav span {
+    margin: 0 8px;
+    font-weight:700;
+    font-size:14px;
+    color:#9C9588;
+  }
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
-        <div style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</div>
-        <div style={{
-          width: 28, height: 28,
-          background: added ? accent : "#fff",
-          border: `2.5px solid ${INK}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, color: "#fff", fontWeight: 900,
-        }}>{added ? "✓" : ""}</div>
-      </div>
-    </div>
-  );
+  .grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap:12px;
+    padding:20px;
+  }
+
+  .card {
+    border:2px solid #1A1A1A;
+    padding:12px;
+    background:white;
+    cursor:pointer;
+    transition:0.2s;
+  }
+
+  .card.added {
+    background:#FFF1EC;
+    border-color:#FF6B4A;
+  }
+
+  .emoji { font-size:26px; }
+
+  .price { font-weight:900; margin-top:6px; }
+
+  .desc { font-size:12px; opacity:0.7; margin-top:4px; }
+
+  .filters {
+    padding: 15px 20px;
+  }
+
+  .filters button {
+    margin:4px;
+    padding:6px 10px;
+    border:2px solid #1A1A1A;
+    background:white;
+    cursor:pointer;
+    font-weight:700;
+  }
+
+  .filters button.active {
+    background:#1A1A1A;
+    color:white;
+  }
+
+  .bag {
+    position:sticky;
+    bottom:0;
+    background:#FFF9E0;
+    border-top:3px solid #1A1A1A;
+    padding:12px 20px;
+    display:flex;
+    justify-content:space-between;
+    font-weight:800;
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">thread&co</div>
+  <div class="nav">
+    <span>New</span>
+    <span>Women</span>
+    <span>Men</span>
+    <span style="color:#1A1A1A;">Gallery</span>
+  </div>
+  <div>🛍️</div>
+</header>
+
+<div class="filters" id="filters"></div>
+
+<div class="grid" id="grid"></div>
+
+<div class="bag" id="bag" style="display:none;">
+  <div id="bagText"></div>
+  <button style="padding:8px 14px; border:2px solid #1A1A1A; background:#FF6B4A; color:white; font-weight:800;">
+    Checkout →
+  </button>
+</div>
+
+<script>
+const ITEMS = [
+  { id: 1, name: "Tailored Wool Coat", price: 145, img: "🧥", category: "Outerwear", desc: "Structured shoulder, knee length." },
+  { id: 2, name: "Oxford Shirt", price: 42, img: "👔", category: "Tops", desc: "Crisp cotton, slim fit." },
+  { id: 3, name: "Wide-Leg Trousers", price: 58, img: "👖", category: "Bottoms", desc: "Tailored drape fit." },
+  { id: 4, name: "Knit Midi Dress", price: 65, img: "👗", category: "Dresses", desc: "Soft ribbed knit." },
+  { id: 5, name: "Leather Boots", price: 110, img: "👢", category: "Footwear", desc: "Hand-finished leather." },
+  { id: 6, name: "Cashmere Scarf", price: 38, img: "🧣", category: "Accessories", desc: "Lightweight warmth." },
+  { id: 7, name: "Denim Jacket", price: 72, img: "🧥", category: "Outerwear", desc: "Cropped fit." },
+  { id: 8, name: "Silk Top", price: 34, img: "👚", category: "Tops", desc: "Bias cut silk." }
+];
+
+const CATEGORIES = ["All","Outerwear","Tops","Bottoms","Dresses","Footwear","Accessories"];
+
+let state = {
+  filter: "All",
+  added: {}
+};
+
+const grid = document.getElementById("grid");
+const filters = document.getElementById("filters");
+const bag = document.getElementById("bag");
+const bagText = document.getElementById("bagText");
+
+function renderFilters() {
+  filters.innerHTML = "";
+  CATEGORIES.forEach(c => {
+    const btn = document.createElement("button");
+    btn.innerText = c;
+    if (state.filter === c) btn.classList.add("active");
+
+    btn.onclick = () => {
+      state.filter = c;
+      render();
+    };
+
+    filters.appendChild(btn);
+  });
 }
 
-function ModeTabs({ mode, onSwitch }) {
-  return (
-    <div style={{ display: "flex", gap: 0, border: `2.5px solid ${INK}` }}>
-      {Object.entries(MODE_CONFIG).map(([key, c], i) => {
-        const active = mode === key;
-        return (
-          <button
-            key={key}
-            onClick={() => onSwitch(key)}
-            style={{
-              flex: 1,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-              background: active ? c.accent : "#fff",
-              color: active ? "#fff" : INK,
-              border: "none",
-              borderRight: i < 2 ? `2.5px solid ${INK}` : "none",
-              padding: "11px 8px",
-              fontSize: 13, fontWeight: 800, cursor: "pointer",
-              fontFamily: FONT,
-              transition: "background 0.15s, color 0.15s",
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{c.emoji}</span>
-            {c.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+function renderItems() {
+  grid.innerHTML = "";
+
+  const items = state.filter === "All"
+    ? ITEMS
+    : ITEMS.filter(i => i.category === state.filter);
+
+  items.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "card" + (state.added[item.id] ? " added" : "");
+
+    div.innerHTML = `
+      <div class="emoji">${item.img} ${item.name}</div>
+      <div class="price">£${item.price}</div>
+      <div class="desc">${item.desc}</div>
+      ${state.added[item.id] ? "<strong>✔ Added</strong>" : ""}
+    `;
+
+    div.onclick = () => {
+      state.added[item.id] = !state.added[item.id];
+      render();
+    };
+
+    grid.appendChild(div);
+  });
 }
 
-function App() {
-  const [mode, setMode] = useState(MODES.EXPLORE);
-  const [added, setAdded] = useState({});
-  const [filter, setFilter] = useState("All");
-  const [fading, setFading] = useState(false);
+function renderBag() {
+  const count = Object.values(state.added).filter(Boolean).length;
+  const total = ITEMS
+    .filter(i => state.added[i.id])
+    .reduce((s,i) => s + i.price, 0);
 
-  const switchMode = (m) => {
-    if (m === mode) return;
-    setFading(true);
-    setTimeout(() => { setMode(m); setFilter("All"); setFading(false); }, 150);
-  };
+  if (count === 0) {
+    bag.style.display = "none";
+    return;
+  }
 
-  const toggle = (id) => setAdded(a => ({ ...a, [id]: !a[id] }));
-  const addedCount = Object.values(added).filter(Boolean).length;
-  const addedTotal = ITEMS.filter(i => added[i.id]).reduce((s, i) => s + i.price, 0);
-  const cfg = MODE_CONFIG[mode];
-  const filtered = filter === "All" ? ITEMS : ITEMS.filter(i => i.category === filter);
-
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: PAPER,
-      fontFamily: FONT,
-      display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "0 0 70px",
-    }}>
-      <div style={{ width: "100%", maxWidth: 920 }}>
-
-        <div style={{
-          borderBottom: `3px solid ${INK}`,
-          padding: "20px 24px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-        }}>
-          <div style={{ fontWeight: 800, fontSize: 24, color: INK }}>thread&co</div>
-          <div style={{ display: "flex", gap: 18, fontSize: 14, fontWeight: 700, color: "#9C9588" }}>
-            <span>New In</span>
-            <span>Women</span>
-            <span>Men</span>
-            <span style={{ color: INK }}>Gallery</span>
-          </div>
-          <div style={{
-            background: INK, color: "#fff",
-            width: 36, height: 36,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16,
-          }}>🛍️</div>
-        </div>
-
-        <div style={{ padding: "32px 24px 0" }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: INK, margin: 0 }}>
-            Browse the collection
-          </h1>
-          <p style={{ color: "#9C9588", fontSize: 15, margin: "6px 0 0", fontWeight: 600 }}>
-            However you like to shop — we'll match the pace.
-          </p>
-        </div>
-
-        <div style={{ padding: "20px 24px 0" }}>
-          <ModeTabs mode={mode} onSwitch={switchMode} />
-          <div style={{
-            marginTop: 14,
-            background: cfg.light,
-            border: `2.5px solid ${cfg.accent}`,
-            padding: "10px 14px",
-            display: "flex", alignItems: "center", gap: 9,
-          }}>
-            <span style={{ fontSize: 17 }}>{cfg.emoji}</span>
-            <span style={{ fontSize: 13, color: cfg.accent, fontWeight: 700 }}>{cfg.hint}</span>
-          </div>
-        </div>
-
-        <div style={{
-          padding: "20px 24px 24px",
-          opacity: fading ? 0 : 1,
-          transform: fading ? "translateY(6px)" : "translateY(0)",
-          transition: "opacity 0.15s, transform 0.15s",
-        }}>
-
-          {mode === MODES.DECISIVE && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480, margin: "0 auto" }}>
-              <ItemCard item={BEST_PICKS[0]} accent={cfg.accent} light={cfg.light} highlight reason="Our most-loved piece this season" added={!!added[BEST_PICKS[0].id]} onToggle={() => toggle(BEST_PICKS[0].id)} />
-              <ItemCard item={BEST_PICKS[1]} accent={cfg.accent} light={cfg.light} highlight reason="Goes with almost anything you own" added={!!added[BEST_PICKS[1].id]} onToggle={() => toggle(BEST_PICKS[1].id)} />
-              <div style={{ textAlign: "center", color: "#C2BCAE", fontSize: 13, fontWeight: 700 }}>
-                Just two. Tap to add, or keep it simple and check out.
-              </div>
-            </div>
-          )}
-
-          {mode === MODES.CURATED && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 600, margin: "0 auto" }}>
-              {CURATED_GROUPS.map(group => (
-                <div key={group.label}>
-                  <div style={{ marginBottom: 10 }}>
-                    <Tag bg={cfg.light}>{group.label}</Tag>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {group.items.map(i => (
-                      <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} compact added={!!added[i.id]} onToggle={() => toggle(i.id)} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {mode === MODES.EXPLORE && (
-            <div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-                {CATEGORIES.map(cat => (
-                  <button key={cat} onClick={() => setFilter(cat)} style={{
-                    background: filter === cat ? cfg.accent : "#fff",
-                    color: filter === cat ? "#fff" : INK,
-                    border: `2.5px solid ${INK}`,
-                    padding: "6px 14px", fontSize: 12, fontWeight: 800,
-                    cursor: "pointer", fontFamily: FONT,
-                  }}>{cat}</button>
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-                {filtered.map(i => (
-                  <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} grid added={!!added[i.id]} onToggle={() => toggle(i.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {addedCount > 0 && (
-          <div style={{
-            position: "sticky", bottom: 0,
-            margin: "0 24px 24px",
-            background: "#FFF9E0",
-            border: `2.5px solid ${INK}`,
-            padding: "12px 18px",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
-          }}>
-            <div style={{ fontSize: 14, color: INK, fontWeight: 800 }}>
-              🛍️ {addedCount} item{addedCount > 1 ? "s" : ""} added · £{addedTotal.toFixed(2)}
-            </div>
-            <button style={{
-              background: "#FF6B4A", color: "#fff",
-              border: `2.5px solid ${INK}`,
-              padding: "9px 20px", fontSize: 13, fontWeight: 800,
-              cursor: "pointer", fontFamily: FONT,
-              boxShadow: "3px 3px 0 rgba(0,0,0,0.18)",
-            }}>
-              Continue to bag →
-            </button>
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
+  bag.style.display = "flex";
+  bagText.innerText = `${count} item(s) · £${total}`;
 }
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
+function render() {
+  renderFilters();
+  renderItems();
+  renderBag();
+}
+
+render();
 </script>
 
 </body>
