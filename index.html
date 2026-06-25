@@ -18,7 +18,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
 <script type="text/babel" data-presets="react">
-const { useState, useRef } = React;
+const { useState, useRef, useEffect } = React;
 
 const ITEMS = [
   { id: 1, name: "Tailored Wool Coat",    price: 145, img: "🧥", rating: 4.8, reviews: 1204, category: "Outerwear", tag: "Bestseller", desc: "Structured shoulder, falls just past the knee.", gender: "women" },
@@ -38,44 +38,111 @@ const ITEMS = [
 const NEW_IN_IDS = [6, 4, 1, 12, 8, 11];
 const NEW_IN_ITEMS = NEW_IN_IDS.map(id => ITEMS.find(i => i.id === id));
 
+const CUSTOMERS = {
+  ash: {
+    name: "Ash",
+    avatar: "🧑",
+    signals: {
+      avgTimeOnProductPage: 92,
+      repeatProductViews: 7,
+      cartAddRemoveCycles: 5,
+      sessionsThisWeek: 6,
+      avgItemsViewedBeforePurchase: 14,
+      cartAbandonRate: 0.71,
+      pastOrderCount: 9,
+      avgTimeToPurchaseDays: 8.4,
+      supportContactsAboutChoosing: 2,
+    },
+  },
+  priya: {
+    name: "Priya",
+    avatar: "👩",
+    signals: {
+      avgTimeOnProductPage: 51,
+      repeatProductViews: 3,
+      cartAddRemoveCycles: 2,
+      sessionsThisWeek: 3,
+      avgItemsViewedBeforePurchase: 7,
+      cartAbandonRate: 0.35,
+      pastOrderCount: 6,
+      avgTimeToPurchaseDays: 3.1,
+      supportContactsAboutChoosing: 0,
+    },
+  },
+  sam: {
+    name: "Sam",
+    avatar: "🧑‍🦱",
+    signals: {
+      avgTimeOnProductPage: 22,
+      repeatProductViews: 1,
+      cartAddRemoveCycles: 0,
+      sessionsThisWeek: 1,
+      avgItemsViewedBeforePurchase: 3,
+      cartAbandonRate: 0.07,
+      pastOrderCount: 11,
+      avgTimeToPurchaseDays: 0.5,
+      supportContactsAboutChoosing: 0,
+    },
+  },
+};
+
+function predictDPS(signals) {
+  const norm = (val, baseline, cap) => Math.min(val / baseline, cap) / cap;
+  const features = {
+    timeOnPage:        norm(signals.avgTimeOnProductPage, 30, 4),
+    repeatViews:        norm(signals.repeatProductViews, 1, 5),
+    cartCycles:         norm(signals.cartAddRemoveCycles, 1, 4),
+    itemsBeforePurchase: norm(signals.avgItemsViewedBeforePurchase, 4, 4),
+    abandonRate:        signals.cartAbandonRate,
+    timeToPurchase:      norm(signals.avgTimeToPurchaseDays, 2, 4),
+    supportContacts:     norm(signals.supportContactsAboutChoosing, 1, 3),
+  };
+  const weights = {
+    timeOnPage: 0.18, repeatViews: 0.18, cartCycles: 0.16,
+    itemsBeforePurchase: 0.14, abandonRate: 0.18, timeToPurchase: 0.08, supportContacts: 0.08,
+  };
+  let score = 0;
+  Object.keys(weights).forEach(k => { score += features[k] * weights[k]; });
+  return Math.round(score * 100);
+}
+
+function dpsBand(score) {
+  if (score >= 65) return { mode: MODES.DECISIVE, pickCount: 2, color: "#FF6B4A" };
+  if (score >= 35) return { mode: MODES.DECISIVE, pickCount: 4, color: "#9B6BD6" };
+  return { mode: MODES.EXPLORE, pickCount: 0, color: "#2BA6C9" };
+}
+
 function itemsForSection(section) {
   if (section === "women") return ITEMS.filter(i => i.gender === "women" || i.gender === "unisex");
   if (section === "men")   return ITEMS.filter(i => i.gender === "men" || i.gender === "unisex");
   return ITEMS;
 }
 
-function bestPicksFor(items) {
-  return [...items].sort((a, b) => b.rating - a.rating).slice(0, 2);
-}
-
-function curatedGroupsFor(items) {
-  const byCat = {};
-  items.forEach(i => { (byCat[i.category] = byCat[i.category] || []).push(i); });
-  return Object.entries(byCat).slice(0, 3).map(([label, its]) => ({ label, items: its.slice(0, 3) }));
+function bestPicksFor(items, count = 2) {
+  return [...items].sort((a, b) => b.rating - a.rating).slice(0, count);
 }
 
 const CATEGORIES = ["All", "Outerwear", "Tops", "Bottoms", "Dresses", "Footwear", "Accessories"];
+const PICK_REASONS = [
+  "Based on what you tend to go for",
+  "Pairs well with your past picks",
+  "Similar to things you've kept before",
+  "A style you keep coming back to",
+];
 const SECTIONS = { NEWIN: "newin", WOMEN: "women", MEN: "men" };
-const MODES = { DECISIVE: "decisive", CURATED: "curated", EXPLORE: "explore" };
+const MODES = { DECISIVE: "decisive", EXPLORE: "explore" };
 
 const MODE_CONFIG = {
   [MODES.DECISIVE]: {
-    emoji: "🎯",
-    label: "Just decide",
-    hint: "Short on time? Here are 2 picks that just work, no scrolling required.",
+    emoji: "✦",
+    label: "Our picks",
+    hint: "We think you might like these, based on your history.",
     accent: "#FF6B4A",
     light: "#FFF1EC",
   },
-  [MODES.CURATED]: {
-    emoji: "🗂️",
-    label: "Help me choose",
-    hint: "Grouped by type — fewer choices at once, easier decisions.",
-    accent: "#9B6BD6",
-    light: "#F6F0FF",
-  },
   [MODES.EXPLORE]: {
     emoji: "🔍",
-    label: "Show everything",
+    label: "Browse all",
     hint: "Full collection, your call. Filter by category as you go.",
     accent: "#2BA6C9",
     light: "#EBF8FC",
@@ -88,13 +155,13 @@ const FONT = "'Baloo Bhaijaan 2', sans-serif";
 
 function Stars({ rating, reviews }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
       <div style={{ display: "flex" }}>
         {"★★★★★".split("").map((s, i) => (
           <span key={i} style={{ color: i < Math.floor(rating) ? "#FFB930" : "#E5E0D5", fontSize: 12 }}>{s}</span>
         ))}
       </div>
-      <span style={{ color: "#A8A296", fontSize: 11, fontWeight: 600 }}>{rating} · {reviews}</span>
+      <span style={{ color: "#A8A296", fontSize: 11, fontWeight: 600 }}>{rating} ({reviews})</span>
     </div>
   );
 }
@@ -103,9 +170,10 @@ function Tag({ children, bg = "#fff" }) {
   return (
     <div style={{
       display: "inline-flex", alignItems: "center", gap: 5,
-      background: bg, padding: "3px 10px",
+      background: bg, padding: "3px 8px",
       border: `2px solid ${INK}`,
-      fontWeight: 800, fontSize: 11, color: INK,
+      fontWeight: 800, fontSize: 10, color: INK,
+      whiteSpace: "nowrap"
     }}>{children}</div>
   );
 }
@@ -116,33 +184,34 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
       <div onClick={onToggle} style={{
         background: added ? light : "#fff",
         border: `2.5px solid ${added ? accent : INK}`,
-        padding: "13px 12px",
+        padding: "12px 10px",
         cursor: "pointer", position: "relative",
-        display: "flex", flexDirection: "column", gap: 8,
+        display: "flex", flexDirection: "column", gap: 6,
         boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.12)",
         transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
       }}>
         {item.tag && (
-          <div style={{ position: "absolute", top: -12, left: 10 }}>
+          <div style={{ position: "absolute", top: -12, left: 6, zIndex: 2 }}>
             <Tag bg={light}>{item.tag}</Tag>
           </div>
         )}
         <div style={{
-          fontSize: 32, background: added ? `${accent}1f` : "#FAF7EE",
+          fontSize: 28, background: added ? `${accent}1f` : "#FAF7EE",
           border: `2px solid ${INK}`,
-          height: 58,
+          height: 54,
           display: "flex", alignItems: "center", justifyContent: "center",
+          marginTop: item.tag ? 4 : 0
         }}>{item.img}</div>
-        <div style={{ fontWeight: 800, fontSize: 13, color: INK, lineHeight: 1.3 }}>{item.name}</div>
+        <div style={{ fontWeight: 800, fontSize: 12.5, color: INK, lineHeight: 1.2, minHeight: "2.4em", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</div>
         <Stars rating={item.rating} reviews={item.reviews} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-          <span style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 4 }}>
+          <span style={{ fontWeight: 900, fontSize: 14, color: INK }}>£{item.price}</span>
           <div style={{
-            width: 26, height: 26,
+            width: 24, height: 24,
             background: added ? accent : "#fff",
             border: `2.5px solid ${INK}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13, color: "#fff", fontWeight: 900,
+            fontSize: 12, color: "#fff", fontWeight: 900,
           }}>{added ? "✓" : ""}</div>
         </div>
       </div>
@@ -156,19 +225,20 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
         background: added ? light : "#fff",
         border: `2.5px solid ${added ? accent : highlight ? accent : INK}`,
         padding: compact ? "11px 13px" : "15px",
-        display: "flex", alignItems: "center", gap: 13,
+        display: "flex", alignItems: "center", gap: 12,
         cursor: "pointer", position: "relative",
         boxShadow: added ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.1)",
         transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
+        marginTop: (highlight || item.tag) ? 12 : 0
       }}
     >
       {highlight && (
-        <div style={{ position: "absolute", top: -13, left: 10 }}>
+        <div style={{ position: "absolute", top: -13, left: 10, zIndex: 2 }}>
           <Tag bg="#FFE177">⭐ TOP PICK</Tag>
         </div>
       )}
       {item.tag && !highlight && (
-        <div style={{ position: "absolute", top: -13, left: 10 }}>
+        <div style={{ position: "absolute", top: -13, left: 10, zIndex: 2 }}>
           <Tag>{item.tag}</Tag>
         </div>
       )}
@@ -184,19 +254,19 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: INK }}>{item.name}</div>
-        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>}
-        {reason && <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 5 }}>✦ {reason}</div>}
+        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.3 }}>{item.desc}</div>}
+        {reason && <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 4 }}>✦ {reason}</div>}
         <div style={{ marginTop: compact ? 4 : 6 }}><Stars rating={item.rating} reviews={item.reviews} /></div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
         <div style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</div>
         <div style={{
-          width: 28, height: 28,
+          width: 26, height: 26,
           background: added ? accent : "#fff",
           border: `2.5px solid ${INK}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, color: "#fff", fontWeight: 900,
+          fontSize: 13, color: "#fff", fontWeight: 900,
         }}>{added ? "✓" : ""}</div>
       </div>
     </div>
@@ -214,18 +284,17 @@ function ModeTabs({ mode, onSwitch }) {
             onClick={() => onSwitch(key)}
             style={{
               flex: 1,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
               background: active ? c.accent : "#fff",
               color: active ? "#fff" : INK,
               border: "none",
-              borderRight: i < 2 ? `2.5px solid ${INK}` : "none",
-              padding: "11px 8px",
-              fontSize: 13, fontWeight: 800, cursor: "pointer",
+              borderRight: i === 0 ? `2.5px solid ${INK}` : "none",
+              padding: "12px 6px",
+              fontSize: 12.5, fontWeight: 800, cursor: "pointer",
               fontFamily: FONT,
-              transition: "background 0.15s, color 0.15s",
             }}
           >
-            <span style={{ fontSize: 16 }}>{c.emoji}</span>
+            <span style={{ fontSize: 14 }}>{c.emoji}</span>
             {c.label}
           </button>
         );
@@ -241,7 +310,7 @@ function SectionTabs({ section, onSwitch }) {
     { key: SECTIONS.MEN,   label: "Men" },
   ];
   return (
-    <div style={{ display: "flex", gap: 18 }}>
+    <div style={{ display: "flex", gap: 14 }}>
       {tabs.map(t => {
         const active = section === t.key;
         return (
@@ -249,11 +318,10 @@ function SectionTabs({ section, onSwitch }) {
             key={t.key}
             onClick={() => onSwitch(t.key)}
             style={{
-              fontSize: 14, fontWeight: 700, cursor: "pointer",
+              fontSize: 13.5, fontWeight: 700, cursor: "pointer",
               color: active ? INK : "#9C9588",
               borderBottom: active ? `2.5px solid ${INK}` : "2.5px solid transparent",
               paddingBottom: 4,
-              transition: "color 0.15s, border-color 0.15s",
             }}
           >{t.label}</span>
         );
@@ -265,87 +333,88 @@ function SectionTabs({ section, onSwitch }) {
 function Carousel({ items, accent, light, added, onToggle }) {
   const trackRef = useRef(null);
   const scrollBy = (dir) => {
-    if (trackRef.current) trackRef.current.scrollBy({ left: dir * 260, behavior: "smooth" });
+    if (trackRef.current) trackRef.current.scrollBy({ left: dir * 200, behavior: "smooth" });
   };
   return (
     <div style={{ position: "relative" }}>
       <div
         ref={trackRef}
         style={{
-          display: "flex", gap: 16,
+          display: "flex", gap: 14,
           overflowX: "auto", scrollSnapType: "x mandatory",
-          paddingBottom: 6,
+          padding: "12px 2px 8px",
           scrollbarWidth: "none",
         }}
       >
         {items.map(item => (
-          <div key={item.id} style={{ minWidth: 220, scrollSnapAlign: "start" }}>
+          <div key={item.id} style={{ minWidth: 180, maxWidth: 200, scrollSnapAlign: "start", flex: 1 }}>
             <div
               onClick={() => onToggle(item.id)}
               style={{
                 background: added[item.id] ? light : "#fff",
                 border: `2.5px solid ${added[item.id] ? accent : INK}`,
-                padding: "14px 13px",
+                padding: "14px 12px",
                 cursor: "pointer", position: "relative",
-                display: "flex", flexDirection: "column", gap: 8,
+                display: "flex", flexDirection: "column", gap: 6,
                 boxShadow: added[item.id] ? `4px 4px 0 ${accent}` : "3px 3px 0 rgba(0,0,0,0.12)",
-                transition: "box-shadow 0.15s, background 0.15s, border-color 0.15s",
               }}
             >
-              <div style={{ position: "absolute", top: -12, left: 10 }}>
-                <Tag bg={light}>✦ New In</Tag>
+              <div style={{ position: "absolute", top: -12, left: 10, zIndex: 2 }}>
+                <Tag bg={light}>✦ New</Tag>
               </div>
               <div style={{
-                fontSize: 38, background: added[item.id] ? `${accent}1f` : "#FAF7EE",
+                fontSize: 34, background: added[item.id] ? `${accent}1f` : "#FAF7EE",
                 border: `2px solid ${INK}`,
-                height: 90,
+                height: 80,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>{item.img}</div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: INK, lineHeight: 1.3 }}>{item.name}</div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: INK, lineHeight: 1.2, minHeight: "2.4em" }}>{item.name}</div>
               <Stars rating={item.rating} reviews={item.reviews} />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
-                <span style={{ fontWeight: 900, fontSize: 16, color: INK }}>£{item.price}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 4 }}>
+                <span style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</span>
                 <div style={{
-                  width: 26, height: 26,
+                  width: 24, height: 24,
                   background: added[item.id] ? accent : "#fff",
                   border: `2.5px solid ${INK}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, color: "#fff", fontWeight: 900,
+                  fontSize: 12, color: "#fff", fontWeight: 900,
                 }}>{added[item.id] ? "✓" : ""}</div>
               </div>
             </div>
           </div>
         ))}
       </div>
-      <button onClick={() => scrollBy(-1)} aria-label="Previous" style={{
-        position: "absolute", left: -16, top: "38%",
-        width: 34, height: 34, borderRadius: "50%",
-        background: "#fff", border: `2.5px solid ${INK}`,
-        fontSize: 15, fontWeight: 800, cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
-      }}>‹</button>
-      <button onClick={() => scrollBy(1)} aria-label="Next" style={{
-        position: "absolute", right: -16, top: "38%",
-        width: 34, height: 34, borderRadius: "50%",
-        background: "#fff", border: `2.5px solid ${INK}`,
-        fontSize: 15, fontWeight: 800, cursor: "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
-      }}>›</button>
     </div>
   );
 }
 
 function App() {
+  const [customerKey, setCustomerKey] = useState("ash");
   const [section, setSection] = useState(SECTIONS.WOMEN);
   const [mode, setMode] = useState(MODES.EXPLORE);
+  const [manualOverride, setManualOverride] = useState(false);
   const [added, setAdded] = useState({});
   const [filter, setFilter] = useState("All");
   const [fading, setFading] = useState(false);
 
+  const customer = CUSTOMERS[customerKey];
+  const dpsScore = predictDPS(customer.signals);
+  const band = dpsBand(dpsScore);
+
+  useEffect(() => {
+    setManualOverride(false);
+    setMode(band.mode);
+  }, [customerKey]);
+
+  const switchCustomer = (key) => {
+    if (key === customerKey) return;
+    setFading(true);
+    setTimeout(() => { setCustomerKey(key); setFilter("All"); setFading(false); }, 150);
+  };
+
   const switchMode = (m) => {
     if (m === mode) return;
+    setManualOverride(true);
     setFading(true);
     setTimeout(() => { setMode(m); setFilter("All"); setFading(false); }, 150);
   };
@@ -356,8 +425,7 @@ function App() {
   const cfg = MODE_CONFIG[mode];
 
   const sectionItems = itemsForSection(section);
-  const bestPicks = bestPicksFor(sectionItems);
-  const curatedGroups = curatedGroupsFor(sectionItems);
+  const bestPicks = bestPicksFor(sectionItems, band.pickCount || 2);
   const filtered = filter === "All" ? sectionItems : sectionItems.filter(i => i.category === filter);
 
   const switchSection = (s) => {
@@ -372,56 +440,98 @@ function App() {
       background: PAPER,
       fontFamily: FONT,
       display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "0 0 70px",
+      padding: "0 0 100px",
     }}>
       <div style={{ width: "100%", maxWidth: 920 }}>
 
-        {/* Site header */}
+        {/* Demo-only user switcher */}
+        <div style={{
+          background: INK, color: "#fff",
+          padding: "8px 16px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontSize: 11, flexWrap: "wrap", gap: 8
+        }}>
+          <span style={{ fontWeight: 700, opacity: 0.75 }}>DEMO · User Profiling</span>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {Object.entries(CUSTOMERS).map(([key, c]) => (
+              <button key={key} onClick={() => switchCustomer(key)} style={{
+                background: customerKey === key ? "#fff" : "transparent",
+                color: customerKey === key ? INK : "#fff",
+                border: "1.5px solid #fff",
+                borderRadius: 14,
+                padding: "2px 8px", fontSize: 11, fontWeight: 800,
+                cursor: "pointer", fontFamily: FONT,
+                display: "flex", alignItems: "center", gap: 3,
+              }}>{c.avatar} {c.name}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Header layout */}
         <div style={{
           borderBottom: `3px solid ${INK}`,
-          padding: "20px 24px",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 16px",
+          display: "flex", flexDirection: "column", gap: 12,
+          alignItems: "center", justifyContent: "center",
         }}>
-          <div style={{ fontWeight: 800, fontSize: 24, color: INK }}>thread&co</div>
+          <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontWeight: 800, fontSize: 22, color: INK }}>thread&co</div>
+            <div style={{ color: INK, fontSize: 18 }}>🛍️</div>
+          </div>
           <SectionTabs section={section} onSwitch={switchSection} />
+        </div>
+
+        {/* Personalized Banner */}
+        {section !== SECTIONS.NEWIN && !manualOverride && mode === MODES.DECISIVE && (
           <div style={{
-            color: INK,
-            width: 36, height: 36,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 20,
-          }}>🛍️</div>
-        </div>
-
-        {/* Intro */}
-        <div style={{ padding: "32px 24px 0" }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: INK, margin: 0 }}>
-            {section === SECTIONS.NEWIN ? "Fresh off the rail" : section === SECTIONS.WOMEN ? "Women's collection" : "Men's collection"}
-          </h1>
-          <p style={{ color: "#9C9588", fontSize: 15, margin: "6px 0 0", fontWeight: 600 }}>
-            {section === SECTIONS.NEWIN ? "The latest arrivals, swipe through at your own pace." : "However you like to shop — we'll match the pace."}
-          </p>
-        </div>
-
-        {/* Mode switcher (Women/Men only) */}
-        {section !== SECTIONS.NEWIN && (
-          <div style={{ padding: "20px 24px 0" }}>
-            <ModeTabs mode={mode} onSwitch={switchMode} />
-            <div style={{
-              marginTop: 14,
-              background: cfg.light,
-              border: `2.5px solid ${cfg.accent}`,
-              padding: "10px 14px",
-              display: "flex", alignItems: "center", gap: 9,
-            }}>
-              <span style={{ fontSize: 17 }}>{cfg.emoji}</span>
-              <span style={{ fontSize: 13, color: cfg.accent, fontWeight: 700 }}>{cfg.hint}</span>
+            margin: "14px 16px 0",
+            background: cfg.light,
+            border: `2px solid ${INK}`,
+            padding: "10px 14px",
+            display: "flex", alignItems: "flex-start", gap: 10,
+          }}>
+            <span style={{ fontSize: 18, marginTop: 2 }}>{customer.avatar}</span>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: INK }}>
+                Hi {customer.name} — we think you might like these.
+              </div>
+              <div style={{ fontSize: 11, color: "#9C9588", fontWeight: 600, marginTop: 2 }}>
+                Refined matching your activity history.
+              </div>
             </div>
           </div>
         )}
 
-        {/* Content */}
+        {/* Intro */}
+        <div style={{ padding: "24px 16px 0" }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: INK, margin: 0 }}>
+            {section === SECTIONS.NEWIN ? "Fresh off the rail" : section === SECTIONS.WOMEN ? "Women's collection" : "Men's collection"}
+          </h1>
+          <p style={{ color: "#9C9588", fontSize: 13.5, margin: "4px 0 0", fontWeight: 600 }}>
+            {section === SECTIONS.NEWIN ? "The latest arrivals, swipe through at your own pace." : "However you like to shop — we'll match the pace."}
+          </p>
+        </div>
+
+        {/* Mode switcher container */}
+        {section !== SECTIONS.NEWIN && (
+          <div style={{ padding: "16px 16px 0" }}>
+            <ModeTabs mode={mode} onSwitch={switchMode} />
+            <div style={{
+              marginTop: 10,
+              background: cfg.light,
+              border: `2.5px solid ${cfg.accent}`,
+              padding: "8px 12px",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 15 }}>{cfg.emoji}</span>
+              <span style={{ fontSize: 12, color: cfg.accent, fontWeight: 700 }}>{cfg.hint}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Product Area Layout */}
         <div style={{
-          padding: "20px 24px 24px",
+          padding: "16px 16px 24px",
           opacity: fading ? 0 : 1,
           transform: fading ? "translateY(6px)" : "translateY(0)",
           transition: "opacity 0.15s, transform 0.15s",
@@ -432,46 +542,45 @@ function App() {
           )}
 
           {section !== SECTIONS.NEWIN && mode === MODES.DECISIVE && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480, margin: "0 auto" }}>
-              <ItemCard item={bestPicks[0]} accent={cfg.accent} light={cfg.light} highlight reason="Our most-loved piece this season" added={!!added[bestPicks[0].id]} onToggle={() => toggle(bestPicks[0].id)} />
-              <ItemCard item={bestPicks[1]} accent={cfg.accent} light={cfg.light} highlight reason="Goes with almost anything you own" added={!!added[bestPicks[1].id]} onToggle={() => toggle(bestPicks[1].id)} />
-              <div style={{ textAlign: "center", color: "#C2BCAE", fontSize: 13, fontWeight: 700 }}>
-                Just two. Tap to add, or keep it simple and check out.
-              </div>
-            </div>
-          )}
-
-          {section !== SECTIONS.NEWIN && mode === MODES.CURATED && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 600, margin: "0 auto" }}>
-              {curatedGroups.map(group => (
-                <div key={group.label}>
-                  <div style={{ marginBottom: 10 }}>
-                    <Tag bg={cfg.light}>{group.label}</Tag>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {group.items.map(i => (
-                      <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} compact added={!!added[i.id]} onToggle={() => toggle(i.id)} />
-                    ))}
-                  </div>
-                </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480, margin: "0 auto" }}>
+              {bestPicks.map((item, i) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  accent={cfg.accent}
+                  light={cfg.light}
+                  highlight
+                  reason={PICK_REASONS[i % PICK_REASONS.length]}
+                  added={!!added[item.id]}
+                  onToggle={() => toggle(item.id)}
+                />
               ))}
+              <div style={{ textAlign: "center", color: "#C2BCAE", fontSize: 12, fontWeight: 700, marginTop: 6 }}>
+                Our personalized top selections.
+              </div>
             </div>
           )}
 
           {section !== SECTIONS.NEWIN && mode === MODES.EXPLORE && (
             <div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
                 {CATEGORIES.map(cat => (
                   <button key={cat} onClick={() => setFilter(cat)} style={{
                     background: filter === cat ? cfg.accent : "#fff",
                     color: filter === cat ? "#fff" : INK,
                     border: `2.5px solid ${INK}`,
-                    padding: "6px 14px", fontSize: 12, fontWeight: 800,
+                    padding: "4px 10px", fontSize: 11, fontWeight: 800,
                     cursor: "pointer", fontFamily: FONT,
                   }}>{cat}</button>
                 ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              
+              {/* Fixed 4-column overflow to auto-fill layout */}
+              <div style={{ 
+                display: "grid", 
+                gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))", 
+                gap: 12 
+              }}>
                 {filtered.map(i => (
                   <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} grid added={!!added[i.id]} onToggle={() => toggle(i.id)} />
                 ))}
@@ -480,28 +589,30 @@ function App() {
           )}
         </div>
 
-        {/* Added summary bar */}
+        {/* Global sticky bar adjustment for viewport clipping */}
         {addedCount > 0 && (
           <div style={{
-            position: "sticky", bottom: 0,
-            margin: "0 24px 24px",
+            position: "fixed", bottom: 12,
+            left: 12, right: 12,
+            zIndex: 999,
             background: "#FFF9E0",
             border: `2.5px solid ${INK}`,
-            padding: "12px 18px",
+            padding: "10px 14px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
           }}>
-            <div style={{ fontSize: 14, color: INK, fontWeight: 800 }}>
-              🛍️ {addedCount} item{addedCount > 1 ? "s" : ""} added · £{addedTotal.toFixed(2)}
+            <div style={{ fontSize: 13, color: INK, fontWeight: 800, whiteSpace: "nowrap", marginRight: 8 }}>
+              🛍️ {addedCount} added · £{addedTotal.toFixed(2)}
             </div>
             <button style={{
               background: "#FF6B4A", color: "#fff",
               border: `2.5px solid ${INK}`,
-              padding: "9px 20px", fontSize: 13, fontWeight: 800,
+              padding: "8px 14px", fontSize: 12, fontWeight: 800,
               cursor: "pointer", fontFamily: FONT,
-              boxShadow: "3px 3px 0 rgba(0,0,0,0.18)",
+              boxShadow: "2px 2px 0 rgba(0,0,0,0.18)",
+              whiteSpace: "nowrap"
             }}>
-              Continue to bag →
+              Bag →
             </button>
           </div>
         )}
