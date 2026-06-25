@@ -8,6 +8,29 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; }
+  
+  /* Responsive utility for the Explore view grid */
+  .adaptive-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  @media (max-width: 850px) {
+    .adaptive-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (max-width: 650px) {
+    .adaptive-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 400px) {
+    .adaptive-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 </head>
 <body>
@@ -22,17 +45,17 @@ const { useState, useRef } = React;
 
 const ITEMS = [
   { id: 1, name: "Tailored Wool Coat",    price: 145, img: "🧥", rating: 4.8, reviews: 1204, category: "Outerwear", tag: "Bestseller", desc: "Structured shoulder, falls just past the knee.", gender: "women" },
-  { id: 2, name: "Classic Oxford Shirt",  price: 42,  img: "👔", rating: 4.7, reviews: 980,  category: "Tops",      tag: "Top Rated",   desc: "Crisp cotton, slim fit. Pairs with everything.", gender: "men" },
-  { id: 3, name: "Wide-Leg Trousers",     price: 58,  img: "👖", rating: 4.5, reviews: 612,  category: "Bottoms",   tag: null,          desc: "Tailored drape, sits at the waist.", gender: "women" },
-  { id: 4, name: "Knit Midi Dress",       price: 65,  img: "👗", rating: 4.6, reviews: 1430, category: "Dresses",   tag: null,          desc: "Ribbed knit, flatters every shape.", gender: "women" },
-  { id: 5, name: "Leather Ankle Boots",   price: 110, img: "👢", rating: 4.4, reviews: 540,  category: "Footwear",  tag: null,          desc: "Hand-finished leather, stacked heel.", gender: "unisex" },
-  { id: 6, name: "Cashmere Scarf",        price: 38,  img: "🧣", rating: 4.9, reviews: 290,  category: "Accessories", tag: "New",       desc: "Featherweight, made to layer.", gender: "unisex" },
+  { id: 2, name: "Classic Oxford Shirt",  price: 42,  img: "👔", rating: 4.7, reviews: 980,  category: "Tops",       tag: "Top Rated",   desc: "Crisp cotton, slim fit. Pairs with everything.", gender: "men" },
+  { id: 3, name: "Wide-Leg Trousers",     price: 58,  img: "👖", rating: 4.5, reviews: 612,  category: "Bottoms",    tag: null,          desc: "Tailored drape, sits at the waist.", gender: "women" },
+  { id: 4, name: "Knit Midi Dress",       price: 65,  img: "👗", rating: 4.6, reviews: 1430, category: "Dresses",    tag: null,          desc: "Ribbed knit, flatters every shape.", gender: "women" },
+  { id: 5, name: "Leather Ankle Boots",   price: 110, img: "👢", rating: 4.4, reviews: 540,  category: "Footwear",   tag: null,          desc: "Hand-finished leather, stacked heel.", gender: "unisex" },
+  { id: 6, name: "Cashmere Scarf",        price: 38,  img: "🧣", rating: 4.9, reviews: 290,  category: "Accessories", tag: "New",        desc: "Featherweight, made to layer.", gender: "unisex" },
   { id: 7, name: "Cropped Denim Jacket",  price: 72,  img: "🧥", rating: 4.3, reviews: 805,  category: "Outerwear", tag: null,          desc: "Light layer for in-between weather.", gender: "women" },
-  { id: 8, name: "Silk Slip Top",         price: 34,  img: "👚", rating: 4.5, reviews: 421,  category: "Tops",      tag: null,          desc: "Bias-cut silk, dresses up or down.", gender: "women" },
+  { id: 8, name: "Silk Slip Top",         price: 34,  img: "👚", rating: 4.5, reviews: 421,  category: "Tops",       tag: null,          desc: "Bias-cut silk, dresses up or down.", gender: "women" },
   { id: 9, name: "Leather Belt",          price: 28,  img: "👞", rating: 4.6, reviews: 705,  category: "Accessories", tag: null,        desc: "Full-grain leather, brass buckle.", gender: "men" },
-  { id: 10, name: "Pleated Midi Skirt",   price: 54,  img: "👗", rating: 4.4, reviews: 388,  category: "Bottoms",   tag: null,          desc: "Soft pleats that move with you.", gender: "women" },
+  { id: 10, name: "Pleated Midi Skirt",   price: 54,  img: "👗", rating: 4.4, reviews: 388,  category: "Bottoms",    tag: null,          desc: "Soft pleats that move with you.", gender: "women" },
   { id: 11, name: "Canvas Tote",          price: 24,  img: "👜", rating: 4.7, reviews: 950,  category: "Accessories", tag: null,        desc: "Heavyweight canvas, fits a laptop.", gender: "unisex" },
-  { id: 12, name: "Suede Loafers",        price: 95,  img: "🥿", rating: 4.5, reviews: 312,  category: "Footwear",  tag: null,          desc: "Soft suede, cushioned insole.", gender: "men" },
+  { id: 12, name: "Suede Loafers",        price: 95,  img: "🥿", rating: 4.5, reviews: 312,  category: "Footwear",   tag: null,          desc: "Soft suede, cushioned insole.", gender: "men" },
 ];
 
 const NEW_IN_IDS = [6, 4, 1, 12, 8, 11];
@@ -88,7 +111,7 @@ const FONT = "'Baloo Bhaijaan 2', sans-serif";
 
 function Stars({ rating, reviews }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
       <div style={{ display: "flex" }}>
         {"★★★★★".split("").map((s, i) => (
           <span key={i} style={{ color: i < Math.floor(rating) ? "#FFB930" : "#E5E0D5", fontSize: 12 }}>{s}</span>
@@ -135,7 +158,7 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
         }}>{item.img}</div>
         <div style={{ fontWeight: 800, fontSize: 13, color: INK, lineHeight: 1.3 }}>{item.name}</div>
         <Stars rating={item.rating} reviews={item.reviews} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 2 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 2, gap: 4 }}>
           <span style={{ fontWeight: 900, fontSize: 15, color: INK }}>£{item.price}</span>
           <div style={{
             width: 26, height: 26,
@@ -143,6 +166,7 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
             border: `2.5px solid ${INK}`,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 13, color: "#fff", fontWeight: 900,
+            flexShrink: 0,
           }}>{added ? "✓" : ""}</div>
         </div>
       </div>
@@ -184,7 +208,7 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: INK }}>{item.name}</div>
-        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.4 }}>{item.desc}</div>}
+        {!compact && <div style={{ color: "#9C9588", fontSize: 11.5, marginTop: 3, lineHeight: 1.4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.desc}</div>}
         {reason && <div style={{ fontSize: 11, color: accent, fontWeight: 700, marginTop: 5 }}>✦ {reason}</div>}
         <div style={{ marginTop: compact ? 4 : 6 }}><Stars rating={item.rating} reviews={item.reviews} /></div>
       </div>
@@ -205,20 +229,21 @@ function ItemCard({ item, accent, light, compact, highlight, reason, added, onTo
 
 function ModeTabs({ mode, onSwitch }) {
   return (
-    <div style={{ display: "flex", gap: 0, border: `2.5px solid ${INK}` }}>
-      {Object.entries(MODE_CONFIG).map(([key, c], i) => {
+    <div style={{ display: "flex", gap: 0, border: `2.5px solid ${INK}`, flexWrap: "wrap" }}>
+      {Object.entries(MODE_CONFIG).map(([key, c], i, arr) => {
         const active = mode === key;
         return (
           <button
             key={key}
             onClick={() => onSwitch(key)}
             style={{
-              flex: 1,
+              flex: "1 1 120px",
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
               background: active ? c.accent : "#fff",
               color: active ? "#fff" : INK,
               border: "none",
-              borderRight: i < 2 ? `2.5px solid ${INK}` : "none",
+              borderRight: i < arr.length - 1 ? `2.5px solid ${INK}` : "none",
+              borderBottom: "none",
               padding: "11px 8px",
               fontSize: 13, fontWeight: 800, cursor: "pointer",
               fontFamily: FONT,
@@ -226,7 +251,7 @@ function ModeTabs({ mode, onSwitch }) {
             }}
           >
             <span style={{ fontSize: 16 }}>{c.emoji}</span>
-            {c.label}
+            <span style={{ whiteSpace: "nowrap" }}>{c.label}</span>
           </button>
         );
       })}
@@ -254,6 +279,7 @@ function SectionTabs({ section, onSwitch }) {
               borderBottom: active ? `2.5px solid ${INK}` : "2.5px solid transparent",
               paddingBottom: 4,
               transition: "color 0.15s, border-color 0.15s",
+              whiteSpace: "nowrap"
             }}
           >{t.label}</span>
         );
@@ -318,20 +344,22 @@ function Carousel({ items, accent, light, added, onToggle }) {
         ))}
       </div>
       <button onClick={() => scrollBy(-1)} aria-label="Previous" style={{
-        position: "absolute", left: -16, top: "38%",
+        position: "absolute", left: -10, top: "38%",
         width: 34, height: 34, borderRadius: "50%",
         background: "#fff", border: `2.5px solid ${INK}`,
         fontSize: 15, fontWeight: 800, cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center",
         boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
+        zIndex: 2
       }}>‹</button>
       <button onClick={() => scrollBy(1)} aria-label="Next" style={{
-        position: "absolute", right: -16, top: "38%",
+        position: "absolute", right: -10, top: "38%",
         width: 34, height: 34, borderRadius: "50%",
         background: "#fff", border: `2.5px solid ${INK}`,
         fontSize: 15, fontWeight: 800, cursor: "pointer",
         display: "flex", alignItems: "center", justifyContent: "center",
         boxShadow: "2px 2px 0 rgba(0,0,0,0.15)",
+        zIndex: 2
       }}>›</button>
     </div>
   );
@@ -372,7 +400,7 @@ function App() {
       background: PAPER,
       fontFamily: FONT,
       display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "0 0 70px",
+      padding: "0 0 90px",
     }}>
       <div style={{ width: "100%", maxWidth: 920 }}>
 
@@ -381,6 +409,8 @@ function App() {
           borderBottom: `3px solid ${INK}`,
           padding: "20px 24px",
           display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 16,
+          flexWrap: "wrap"
         }}>
           <div style={{ fontWeight: 800, fontSize: 24, color: INK }}>thread&co</div>
           <SectionTabs section={section} onSwitch={switchSection} />
@@ -471,7 +501,7 @@ function App() {
                   }}>{cat}</button>
                 ))}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+              <div className="adaptive-grid">
                 {filtered.map(i => (
                   <ItemCard key={i.id} item={i} accent={cfg.accent} light={cfg.light} grid added={!!added[i.id]} onToggle={() => toggle(i.id)} />
                 ))}
@@ -483,13 +513,17 @@ function App() {
         {/* Added summary bar */}
         {addedCount > 0 && (
           <div style={{
-            position: "sticky", bottom: 0,
+            position: "sticky",
+            bottom: 16,
             margin: "0 24px 24px",
             background: "#FFF9E0",
             border: `2.5px solid ${INK}`,
             padding: "12px 18px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             boxShadow: "4px 4px 0 rgba(0,0,0,0.15)",
+            gap: 12,
+            flexWrap: "wrap",
+            zIndex: 10
           }}>
             <div style={{ fontSize: 14, color: INK, fontWeight: 800 }}>
               🛍️ {addedCount} item{addedCount > 1 ? "s" : ""} added · £{addedTotal.toFixed(2)}
